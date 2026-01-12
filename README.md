@@ -4,10 +4,11 @@ Backend для блога на Django и Django Ninja с PostgreSQL.
 
 ## Технологии
 
-- Python 3.10+
-- Django 4.2.7
-- Django Ninja 1.0.0
-- Django Ninja JWT 5.9.0
+- Python 3.12+ (поддерживается Python 3.14)
+- Django 6.0+
+- Django Ninja 1.5.0+
+- Django Ninja Extra 0.30.0+
+- Django Ninja JWT 5.4.3+
 - PostgreSQL 15
 - Docker & Docker Compose
 - Structlog для логирования
@@ -68,9 +69,27 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-4. Создайте файл `.env` (скопируйте из `.env.example`):
+4. Создайте файл `.env` и сгенерируйте SECRET_KEY:
+
+**Генерация SECRET_KEY:**
+
 ```bash
-SECRET_KEY=your-secret-key-here
+# Способ 1: Используя утилиту проекта
+python generate_secret_key.py
+
+# Способ 2: Через Django
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
+# Способ 3: Через Django shell
+python manage.py shell
+# Затем: from django.core.management.utils import get_random_secret_key
+#       print(get_random_secret_key())
+```
+
+Создайте файл `.env` в корне проекта:
+
+```env
+SECRET_KEY=ваш-сгенерированный-ключ-здесь
 DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 DB_HOST=localhost
@@ -79,6 +98,8 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 DB_PORT=5432
 ```
+
+**Важно:** Используйте уникальный SECRET_KEY для каждого проекта!
 
 5. Запустите PostgreSQL через Docker Compose:
 ```bash
@@ -118,6 +139,10 @@ docker-compose exec web python manage.py createsuperuser
 ```
 
 ## API Endpoints
+
+### Информация об API
+
+- `GET /` - Информация об API и доступных endpoints (JSON)
 
 ### Аутентификация
 

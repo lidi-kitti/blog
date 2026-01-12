@@ -118,7 +118,7 @@ def create_article(request, data: ArticleCreateSchema):
     }
 
 
-@router.put("/articles/{article_id}", response=ArticleSchema, auth=auth)
+@router.put("/articles/{article_id}", response={200: ArticleSchema, 403: dict}, auth=auth)
 def update_article(request, article_id: int, data: ArticleUpdateSchema):
     """Обновить статью"""
     user = request.user
@@ -164,7 +164,7 @@ def update_article(request, article_id: int, data: ArticleUpdateSchema):
     }
 
 
-@router.delete("/articles/{article_id}", response={200: dict}, auth=auth)
+@router.delete("/articles/{article_id}", response={200: dict, 403: dict}, auth=auth)
 def delete_article(request, article_id: int):
     """Удалить статью"""
     user = request.user
@@ -233,7 +233,7 @@ def create_comment(request, data: CommentCreateSchema):
     }
 
 
-@router.put("/comments/{comment_id}", response=CommentSchema, auth=auth)
+@router.put("/comments/{comment_id}", response={200: CommentSchema, 403: dict}, auth=auth)
 def update_comment(request, comment_id: int, data: CommentUpdateSchema):
     """Обновить комментарий"""
     user = request.user
@@ -261,7 +261,7 @@ def update_comment(request, comment_id: int, data: CommentUpdateSchema):
     }
 
 
-@router.delete("/comments/{comment_id}", response={200: dict}, auth=auth)
+@router.delete("/comments/{comment_id}", response={200: dict, 403: dict}, auth=auth)
 def delete_comment(request, comment_id: int):
     """Удалить комментарий"""
     user = request.user
@@ -285,7 +285,16 @@ def delete_comment(request, comment_id: int):
 def list_categories(request):
     """Список всех категорий"""
     categories = Category.objects.all()
-    return list(categories)
+    result = []
+    for category in categories:
+        result.append({
+            'id': category.id,
+            'name': category.name,
+            'slug': category.slug,
+            'description': category.description,
+            'created_at': category.created_at,
+        })
+    return result
 
 
 @router.post("/categories", response=CategorySchema, auth=auth)
@@ -304,5 +313,11 @@ def create_category(request, data: CategoryCreateSchema):
     log_crud_operation("create", "Category", user, category.id, {"name": category.name})
     logger.info("category_created", category_id=category.id, user_id=user.id)
     
-    return category
+    return {
+        'id': category.id,
+        'name': category.name,
+        'slug': category.slug,
+        'description': category.description,
+        'created_at': category.created_at,
+    }
 

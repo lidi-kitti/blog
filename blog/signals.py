@@ -5,6 +5,16 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 
+def get_client_ip(request):
+    """Получить IP адрес клиента"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
 @receiver(user_logged_in)
 def log_user_login(sender, request, user, **kwargs):
     """Логирование успешного входа пользователя"""
@@ -28,21 +38,12 @@ def log_user_logout(sender, request, user, **kwargs):
 
 
 @receiver(user_login_failed)
-def log_user_login_failed(sender, credentials, request, **kwargs):
+def log_user_login_failed(sender, credentials, request=None, **kwargs):
     """Логирование неудачной попытки входа"""
+    ip_address = get_client_ip(request) if request else None
     logger.warning(
         "user_login_failed",
         username=credentials.get('username'),
-        ip_address=get_client_ip(request)
+        ip_address=ip_address
     )
-
-
-def get_client_ip(request):
-    """Получить IP адрес клиента"""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
 
