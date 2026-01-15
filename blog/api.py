@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.conf import settings
 from typing import List
 from datetime import timedelta
-from .authentication import token_auth
+from .authentication import TokenAuthFromHeaderOrBody
 from .models import Article, Comment, Category, UserToken
 from .schemas import (
     ArticleSchema, ArticleCreateSchema, ArticleUpdateSchema,
@@ -20,7 +20,7 @@ import structlog
 logger = structlog.get_logger(__name__)
 User = get_user_model()
 router = Router()
-auth = token_auth
+auth = TokenAuthFromHeaderOrBody()
 
 # Настройки токенов
 TOKEN_LENGTH = getattr(settings, 'TOKEN_LENGTH', 256)
