@@ -1,22 +1,30 @@
 from ninja import Router
 from django.shortcuts import get_object_or_404
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, authenticate
 from django.db.models import Q
+from django.utils import timezone
+from django.conf import settings
 from typing import List
-from ninja_jwt.authentication import JWTAuth
-from .models import Article, Comment, Category
+from datetime import timedelta
+from .authentication import token_auth
+from .models import Article, Comment, Category, UserToken
 from .schemas import (
     ArticleSchema, ArticleCreateSchema, ArticleUpdateSchema,
     CommentSchema, CommentCreateSchema, CommentUpdateSchema,
-    CategorySchema, CategoryCreateSchema, UserRegisterSchema
+    CategorySchema, CategoryCreateSchema, UserRegisterSchema,
+    UserLoginSchema, TokenResponseSchema, ChangePasswordSchema
 )
-from .utils import generate_slug, log_crud_operation, log_user_action
+from .utils import generate_slug, log_crud_operation, log_user_action, generate_token
 import structlog
 
 logger = structlog.get_logger(__name__)
 User = get_user_model()
 router = Router()
-auth = JWTAuth()
+auth = token_auth
+
+# Настройки токенов
+TOKEN_LENGTH = getattr(settings, 'TOKEN_LENGTH', 256)
+TOKEN_LIFETIME_DAYS = getattr(settings, 'TOKEN_LIFETIME_DAYS', 7)
 
 
 @router.post("/register", response={200: dict, 400: dict}, auth=None)
@@ -31,6 +39,72 @@ def register(request, data: UserRegisterSchema):
     logger.info("user_registered", user_id=user.id, username=data.username)
     
     return {"message": "Пользователь успешно зарегистрирован", "user_id": user.id}
+
+
+@router.post("/login", response={200: TokenResponseSchema, 401: dict}, auth=None)
+def login(request, data: UserLoginSchema):
+    """Вход пользователя и получение токена длиной 256 символов"""
+    # Сначала проверяем существование пользователя
+    try:
+        user = User.objects.get(username=data.username)
+    except User.DoesNotExist:
+        logger.warning("login_failed", username=data.username, reason="user_not_found")
+        return 401, {"error": "Неверное имя пользователя или пароль"}
+    
+    if not user.is_active:
+        logger.warning("login_failed", username=data.username, reason="inactive")
+        return 401, {"error": "Аккаунт пользователя неактивен"}
+    
+    # Проверяем пароль
+    user = authenticate(username=data.username, password=data.password)
+    if not user:
+        logger.warning("login_failed", username=data.username, reason="invalid_password")
+        return 401, {"error": "Неверное имя пользователя или пароль"}
+    
+    # Генерируем уникальный токен заданной длины
+    token = generate_token(TOKEN_LENGTH)
+    
+    # Проверяем уникальность токена (на случай коллизии)
+    while UserToken.objects.filter(token=token).exists():
+        token = generate_token(TOKEN_LENGTH)
+    
+    # Создаем токен с заданным временем жизни
+    expires_at = timezone.now() + timedelta(days=TOKEN_LIFETIME_DAYS)
+    user_token = UserToken.objects.create(
+        user=user,
+        token=token,
+        expires_at=expires_at
+    )
+    
+    log_user_action("login", user)
+    logger.info("user_logged_in", user_id=user.id, username=user.username, token_id=user_token.id)
+    
+    return {
+        "token": token,
+        "expires_at": expires_at,
+        "user_id": user.id,
+        "username": user.username
+    }
+
+
+@router.post("/change-password", response={200: dict, 400: dict, 401: dict}, auth=auth)
+def change_password(request, data: ChangePasswordSchema):
+    """Смена пароля для авторизованного пользователя"""
+    user = request.user
+    
+    # Проверяем старый пароль
+    if not user.check_password(data.old_password):
+        logger.warning("change_password_failed", user_id=user.id, reason="invalid_old_password")
+        return 401, {"error": "Неверный текущий пароль"}
+    
+    # Устанавливаем новый пароль
+    user.set_password(data.new_password)
+    user.save()
+    
+    log_user_action("change_password", user)
+    logger.info("password_changed", user_id=user.id, username=user.username)
+    
+    return {"message": "Пароль успешно изменен"}
 
 
 @router.get("/articles", response=List[ArticleSchema], auth=None)

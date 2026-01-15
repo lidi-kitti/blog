@@ -7,10 +7,8 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from ninja_extra import NinjaExtraAPI
 from blog.api import router as blog_router
-from ninja_jwt.controller import NinjaJWTDefaultController
 
 api = NinjaExtraAPI(title="Blog API", version="1.0.0")
-api.register_controllers(NinjaJWTDefaultController)
 api.add_router("/blog", blog_router)
 
 
@@ -24,8 +22,7 @@ def root_view(request):
         "admin": "/admin/",
         "endpoints": {
             "auth": {
-                "login": "/api/auth/login/",
-                "refresh": "/api/auth/refresh/",
+                "login": "/api/blog/login/",
                 "register": "/api/blog/register/"
             },
             "articles": {

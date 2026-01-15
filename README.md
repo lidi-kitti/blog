@@ -8,7 +8,6 @@ Backend для блога на Django и Django Ninja с PostgreSQL.
 - Django 6.0+
 - Django Ninja 1.5.0+
 - Django Ninja Extra 0.30.0+
-- Django Ninja JWT 5.4.3+
 - PostgreSQL 15
 - Docker & Docker Compose
 - Structlog для логирования
@@ -18,8 +17,9 @@ Backend для блога на Django и Django Ninja с PostgreSQL.
 
 ### 1. Регистрация и аутентификация
 - Регистрация пользователей через username и password
-- JWT аутентификация через django-ninja-jwt
-- Авторизация через Bearer токен в заголовке
+- Токен длиной 256 символов (случайные символы)
+- Авторизация через токен в заголовке `Authorization: Bearer <token>` или в теле запроса (поле `token`)
+- Токен действителен 7 дней
 
 ### 2. CRUD для статей
 - Создание, просмотр, обновление, удаление статей
@@ -148,9 +148,9 @@ docker-compose exec web python manage.py createsuperuser
 
 ### Аутентификация
 
-- `POST /api/token/pair` - Вход (получение JWT токена)
-- `POST /api/token/refresh` - Обновление токена
 - `POST /api/blog/register` - Регистрация нового пользователя
+- `POST /api/blog/login` - Вход (получение токена длиной 256 символов)
+- `POST /api/blog/change-password` - Смена пароля (требуется авторизация)
 
 ### Статьи
 
@@ -183,9 +183,9 @@ curl -X POST http://localhost:8000/api/blog/register \
   -d '{"username": "testuser", "password": "testpass123"}'
 ```
 
-### Вход (получение JWT токена)
+### Вход (получение токена)
 ```bash
-curl -X POST http://localhost:8000/api/token/pair \
+curl -X POST http://localhost:8000/api/blog/login \
   -H "Content-Type: application/json" \
   -d '{"username": "testuser", "password": "testpass123"}'
 ```
@@ -193,18 +193,36 @@ curl -X POST http://localhost:8000/api/token/pair \
 Ответ:
 ```json
 {
-  "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
-  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+  "token": "256-символьный-токен-из-случайных-символов...",
+  "expires_at": "2026-01-22T10:00:00.000Z",
+  "user_id": 1,
+  "username": "testuser"
 }
 ```
 
-### Создание статьи (с токеном)
+**Важно:** Сохраните токен для последующих запросов! Токен действителен 7 дней.
+
+### Создание статьи (с токеном в заголовке)
 ```bash
 curl -X POST http://localhost:8000/api/blog/articles \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"title": "Моя статья", "content": "Содержание статьи", "published": true}'
 ```
+
+### Создание статьи (с токеном в теле запроса)
+```bash
+curl -X POST http://localhost:8000/api/blog/articles \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "YOUR_TOKEN",
+    "title": "Моя статья",
+    "content": "Содержание статьи",
+    "published": true
+  }'
+```
+
+**Примечание:** Токен можно передавать либо в заголовке `Authorization: Bearer <token>`, либо в теле запроса в поле `token`.
 
 ### Поиск статей
 ```bash
@@ -255,7 +273,7 @@ pytest blog/tests.py -k register
 ### Структура тестов
 
 Тесты организованы по функциональным областям:
-- **Регистрация и аутентификация** - тесты регистрации пользователей и JWT токенов
+- **Регистрация и аутентификация** - тесты регистрации пользователей и токенов
 - **Статьи** - CRUD операции, поиск, фильтрация, проверка прав доступа
 - **Комментарии** - CRUD операции, проверка прав доступа
 - **Категории** - создание и получение категорий
@@ -280,6 +298,15 @@ pytest blog/tests.py -k register
 - Вход/выход пользователей
 - Все CRUD операции
 - Ошибки и предупреждения
+- Аутентификация по токенам
+
+## Настройки токенов
+
+Токены настраиваются в `blog_project/settings.py`:
+- `TOKEN_LENGTH = 256` - длина токена в символах
+- `TOKEN_LIFETIME_DAYS = 7` - время жизни токена в днях
+
+Токены хранятся в модели `UserToken` и могут быть управляемы через админ-панель.
 
 ## Структура проекта
 
@@ -293,16 +320,18 @@ blog/
 │   └── asgi.py                # ASGI конфигурация
 ├── blog/                      # Приложение блога
 │   ├── __init__.py
-│   ├── models.py              # Модели данных (Article, Comment, Category)
+│   ├── models.py              # Модели данных (Article, Comment, Category, UserToken)
 │   ├── api.py                 # API endpoints (Django Ninja)
 │   ├── admin.py               # Админ-панель Django
+│   ├── authentication.py      # Кастомная аутентификация (токены)
 │   ├── apps.py                # Конфигурация приложения
 │   ├── schemas.py             # Pydantic схемы для API
-│   ├── utils.py               # Утилиты (генерация slug, логирование)
+│   ├── utils.py               # Утилиты (генерация slug, логирование, генерация токенов)
 │   ├── signals.py             # Django сигналы для логирования
 │   ├── tests.py               # Тесты (pytest-django)
 │   └── migrations/            # Миграции базы данных
-│       └── 0001_initial.py
+│       ├── 0001_initial.py
+│       └── 0002_usertoken.py
 ├── docker-compose.yml          # Docker Compose конфигурация
 ├── Dockerfile                 # Docker образ
 ├── requirements.txt           # Python зависимости

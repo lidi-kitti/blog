@@ -89,3 +89,19 @@ class UserRegisterSchema(Schema):
     username: str
     password: str
 
+
+class UserLoginSchema(Schema):
+    username: str
+    password: str
+
+
+class TokenResponseSchema(Schema):
+    token: str
+    expires_at: datetime
+    user_id: int
+    username: str
+
+
+class ChangePasswordSchema(Schema):
+    old_password: str
+    new_password: str

@@ -52,3 +52,28 @@ class Comment(models.Model):
     def __str__(self):
         return f"Комментарий от {self.author.username} к статье {self.article.title}"
 
+
+class UserToken(models.Model):
+    """Модель для хранения токенов пользователей длиной 256 символов"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tokens', verbose_name="Пользователь")
+    token = models.CharField(max_length=256, unique=True, db_index=True, verbose_name="Токен")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
+    expires_at = models.DateTimeField(verbose_name="Истекает")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    last_used = models.DateTimeField(null=True, blank=True, verbose_name="Последнее использование")
+
+    class Meta:
+        verbose_name = "Токен пользователя"
+        verbose_name_plural = "Токены пользователей"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['user', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"Токен для {self.user.username}"
+
+    def is_expired(self):
+        """Проверка истечения токена"""
+        return timezone.now() > self.expires_at

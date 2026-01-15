@@ -1,5 +1,9 @@
 import structlog
+import secrets
+import string
 from django.utils.text import slugify
+from django.utils import timezone
+from datetime import timedelta
 
 logger = structlog.get_logger(__name__)
 
@@ -47,4 +51,11 @@ def log_crud_operation(operation, model_name, user, object_id=None, details=None
         object_id=object_id,
         details=details or {}
     )
+
+
+def generate_token(length=256):
+    """Генерирует случайный токен заданной длины (по умолчанию 256 символов)"""
+    alphabet = string.ascii_letters + string.digits
+    token = ''.join(secrets.choice(alphabet) for _ in range(length))
+    return token
 

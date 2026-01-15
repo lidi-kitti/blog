@@ -124,13 +124,9 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Django Ninja JWT settings
-from datetime import timedelta
-
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-}
+# Настройки токенов
+TOKEN_LENGTH = 256  # Длина токена в символах
+TOKEN_LIFETIME_DAYS = 7  # Время жизни токена в днях
 
 # Logging configuration
 import structlog
